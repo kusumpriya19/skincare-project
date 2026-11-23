@@ -1,0 +1,26 @@
+﻿{
+  "name": "shopping-agent",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "start": "wrangler dev",
+    "cf-typegen": "wrangler types"
+  },
+  "dependencies": {
+    "@cloudflare/computer": "^0.11.4",
+    "@earendil-works/chord": "^1.6.0",
+    "@earendil-works/pi-ai": "^1.6.0",
+    "@earendil-works/pi-durable": "^1.6.0",
+    "@earendil-works/pi-schema": "^1.6.0",
+    "agents": "^0.34.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.4.3",
+    "typescript": "^5.5.2",
+    "vitest": "~5.0.3",
+    "wrangler": "^4"
+  }
+}
+

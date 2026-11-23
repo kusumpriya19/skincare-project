@@ -1,0 +1,21 @@
+﻿{
+  "name": "shopping-agent",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-22",
+  "compatibility_flags": ["nodejs_compat"],
+  "ai": {
+    "binding": "AI"
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "Assistant", "class_name": "Assistant" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["Assistant"] }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}
+
