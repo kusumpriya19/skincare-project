@@ -16,25 +16,19 @@ const CANDIDATE_URLS = [
 	"https://www.dotandkey.com/products/10-niacinamide-strawberry-brightening-face-serum",
 ];
 
-// Retail pages sometimes block Workers or render ingredients only in the browser.
-// These small catalog records keep the demo usable in those cases. They contain
-// only the named active, so they are intentionally less precise than a live list.
+// Curated starter data supplied for this demo. These are key ingredients, not
+// verified full INCI lists; listed prices are approximate and have no package size.
 const STARTER_CATALOG_FALLBACK: ProductSnapshot[] = [
-	{
-		name: "Minimalist Niacinamide 10% + Matmarine",
-		url: CANDIDATE_URLS[0], price: null, currency: "INR", size: null, sizeUnit: null,
-		ingredients: ["Niacinamide"], activeIngredients: ["Niacinamide"], activeLevels: ["Niacinamide: 10%"],
-	},
-	{
-		name: "The Derma Co 10% Niacinamide Serum",
-		url: CANDIDATE_URLS[1], price: null, currency: "INR", size: null, sizeUnit: null,
-		ingredients: ["Niacinamide"], activeIngredients: ["Niacinamide"], activeLevels: ["Niacinamide: 10%"],
-	},
-	{
-		name: "Dot & Key 10% Niacinamide + Strawberry Brightening Face Serum",
-		url: CANDIDATE_URLS[2], price: null, currency: "INR", size: null, sizeUnit: null,
-		ingredients: ["Niacinamide"], activeIngredients: ["Niacinamide"], activeLevels: ["Niacinamide: 10%"],
-	},
+	{ name: "Minimalist 2% Salicylic Acid + LHA Face Cleanser", url: "", price: 278, currency: "INR", size: null, sizeUnit: null, ingredients: ["Salicylic acid", "LHA", "Zinc"], activeIngredients: ["Salicylic acid"], activeLevels: ["Salicylic acid: 2%"] },
+	{ name: "Cetaphil Gentle Skin Cleanser", url: "", price: 654, currency: "INR", size: null, sizeUnit: null, ingredients: ["Niacinamide", "Panthenol", "Glycerin"], activeIngredients: ["Niacinamide", "Panthenol"], activeLevels: [] },
+	{ name: "The Derma Co Sali-Cinamide Anti-Acne Face Wash", url: "", price: 489, currency: "INR", size: null, sizeUnit: null, ingredients: ["Salicylic acid", "Niacinamide"], activeIngredients: ["Salicylic acid", "Niacinamide"], activeLevels: ["Salicylic acid: 2%", "Niacinamide: 2%"] },
+	{ name: "Plum Green Tea Pore Cleansing Face Wash", url: "", price: 119, currency: "INR", size: null, sizeUnit: null, ingredients: ["Green tea", "Glycolic acid", "Cellulose beads"], activeIngredients: ["Glycolic acid"], activeLevels: [] },
+	{ name: "Minimalist 10% Vitamin B5 Moisturizer", url: "", price: 349, currency: "INR", size: null, sizeUnit: null, ingredients: ["Panthenol", "Hyaluronic acid", "Zinc"], activeIngredients: ["Panthenol", "Hyaluronic acid"], activeLevels: ["Panthenol: 10%"] },
+	{ name: "Cetaphil Moisturising Cream", url: "", price: 669, currency: "INR", size: null, sizeUnit: null, ingredients: ["Niacinamide", "Panthenol", "Glycerin", "Sweet almond oil"], activeIngredients: ["Niacinamide", "Panthenol"], activeLevels: [] },
+	{ name: "Plum Green Tea Renewed Clarity Night Gel", url: "", price: 185, currency: "INR", size: null, sizeUnit: null, ingredients: ["Green tea", "Glycolic acid", "Willow bark", "Licorice"], activeIngredients: ["Glycolic acid"], activeLevels: [] },
+	{ name: "Mamaearth Ubtan Oil Free Face Moisturizer", url: "", price: 287, currency: "INR", size: null, sizeUnit: null, ingredients: ["Turmeric", "Saffron"], activeIngredients: [], activeLevels: [] },
+	{ name: "Minimalist 10% Niacinamide Face Serum", url: CANDIDATE_URLS[0], price: 474, currency: "INR", size: null, sizeUnit: null, ingredients: ["Niacinamide", "Zinc", "Aloe vera"], activeIngredients: ["Niacinamide"], activeLevels: ["Niacinamide: 10%"] },
+	{ name: "Cetaphil Bright Healthy Radiance Brightening Serum", url: "", price: 2299, currency: "INR", size: null, sizeUnit: null, ingredients: ["Niacinamide", "Sea daffodil", "Peptides", "Vitamin C"], activeIngredients: ["Niacinamide", "Vitamin C"], activeLevels: [] },
 ];
 
 const ACTIVE_PATTERNS: Array<[string, RegExp]> = [
@@ -319,24 +313,28 @@ function isCheaper(candidate: ProductSnapshot, source: ProductSnapshot): boolean
 	return false;
 }
 
-function catalogProducts(pages: Array<{ url: string; html: string } | null>, sourceUrl?: string): ProductSnapshot[] {
-	return STARTER_CATALOG_FALLBACK.map((fallback, index) => {
-		const page = pages[index];
-		if (!page) return fallback;
-		const parsed = parseProductPage(page.url, page.html);
-		if (parsed.ingredients.length >= 5) return parsed;
-		return { ...fallback, price: parsed.price, currency: parsed.currency ?? fallback.currency, size: parsed.size, sizeUnit: parsed.sizeUnit };
-	}).filter((candidate) => sourceUrl === undefined || new URL(candidate.url).hostname !== new URL(sourceUrl).hostname);
+function categoryOf(name: string): "cleanser" | "moisturizer" | "serum" | undefined {
+	if (/cleanser|face wash/i.test(name)) return "cleanser";
+	if (/moistur|cream|night gel/i.test(name)) return "moisturizer";
+	if (/serum/i.test(name)) return "serum";
+	return undefined;
+}
+
+function catalogProducts(_pages: Array<{ url: string; html: string } | null>, sourceUrl?: string, sourceName?: string): ProductSnapshot[] {
+	const category = sourceName ? categoryOf(sourceName) : undefined;
+	return STARTER_CATALOG_FALLBACK.filter((product) => {
+		if (category && categoryOf(product.name) !== category) return false;
+		return !sourceUrl || !product.url || new URL(product.url).hostname !== new URL(sourceUrl).hostname;
+	});
 }
 
 export async function findAffordableAlternatives(rawUrl: string): Promise<string> {
 	const url = validateProductUrl(rawUrl).toString();
 	const [sourcePage, ...candidatePages] = await Promise.all([
 		fetchProductPage(url),
-		...CANDIDATE_URLS.map((candidate) => fetchProductPage(candidate).catch(() => null)),
 	]);
 	const source = parseProductPage(sourcePage.url, sourcePage.html);
-	const candidateProducts = catalogProducts(candidatePages, source.url);
+	const candidateProducts = catalogProducts(candidatePages, source.url, source.name);
 
 	if (source.ingredients.length < 5) {
 		return JSON.stringify({
@@ -446,8 +444,7 @@ export async function comparePastedIngredients(rawIngredients: string): Promise<
 	const ingredients = rawIngredients.split(/[\n,;]+/).map((item) => item.trim().replace(/^[\d.)\s-]+/, "").replace(/[.;:]+$/, "")).filter((item) => item.length > 1 && item.length < 100).slice(0, 120);
 	if (ingredients.length < 5) return JSON.stringify({ status: "ingredients_incomplete", message: "Please paste at least five ingredients, separated by commas or one per line." });
 	const source: ProductSnapshot = { name: "Your pasted product", url: "", price: null, currency: null, size: null, sizeUnit: null, ingredients, ...activeFacts(ingredients.join(", ")) };
-	const pages = await Promise.all(CANDIDATE_URLS.map((url) => fetchProductPage(url).catch(() => null)));
-	const candidates = catalogProducts(pages).map((candidate) => {
+	const candidates = catalogProducts([]).map((candidate) => {
 		const sourceKeys = normalizedIngredients(source);
 		const candidateKeys = normalizedIngredients(candidate);
 		const shared = [...sourceKeys].filter((key) => candidateKeys.has(key));
